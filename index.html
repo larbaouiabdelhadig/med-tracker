@@ -7,23 +7,38 @@
     <title>Medication Tracker</title>
     <link rel="manifest" href="manifest.json">
     <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
         body {
-            font-family: system-ui;
             margin: 0;
             padding: 16px;
-            background: #f4f6fa;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            position: relative;
         }
 
         .card {
-            background: white;
+            background: var(--card);
             padding: 20px;
             border-radius: 16px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
             margin-bottom: 20px;
         }
 
         h2 {
-            margin-top: 0
+            margin-top: 0;
         }
 
         input,
@@ -31,6 +46,7 @@
             padding: 8px;
             margin: 5px 0;
             width: 100%;
+            box-sizing: border-box;
         }
 
         table {
@@ -42,63 +58,89 @@
         th,
         td {
             padding: 8px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border);
             text-align: center;
         }
 
+        td[contenteditable="true"] {
+            background: #f9f9f9;
+            cursor: text;
+        }
+
         button {
-            background: #4f46e5;
+            background: var(--primary);
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #toggleSettingsBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            font-size: 12px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin: 10px 0;
+        }
+
+        label span {
+            margin-right: 8px;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="card">
-        <h2>Settings</h2>
+    <div class="container">
 
-        <label>Medication After Lunch Name</label>
-        <input id="medLunch">
+        <div class="card">
+            <h2>Medication Tracker</h2>
+            <button id="toggleSettingsBtn">⚙</button>
+            <div id="settingsDiv" class="hidden">
+                <label>Medication After Lunch <input id="medLunch" placeholder="Name"></label>
+                <label>Medication After Dinner <input id="medDinner" placeholder="Name"></label>
+                <label>Lunch Reminder Time <input type="time" id="timeLunch"></label>
+                <label>Dinner Reminder Time <input type="time" id="timeDinner"></label>
+                <label>Start Date <input type="date" id="startDate"></label>
+                <button onclick="saveSettings()">Save Settings</button>
+                <button onclick="requestNotif()">Enable Notifications</button>
+            </div>
+        </div>
 
-        <label>Medication After Dinner Name</label>
-        <input id="medDinner">
+        <div class="card">
+            <h2>Today</h2>
+            <div id="todayDate"></div>
+            <label><span id="labelLunch">Lunch</span><input type="checkbox" id="checkLunch"></label>
+            <label><span id="labelDinner">Dinner</span><input type="checkbox" id="checkDinner"></label>
+        </div>
 
-        <label>Lunch Reminder Time</label>
-        <input type="time" id="timeLunch">
+        <div class="card">
+            <h2>History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Lunch</th>
+                        <th>Dinner</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable"></tbody>
+            </table>
+        </div>
 
-        <label>Dinner Reminder Time</label>
-        <input type="time" id="timeDinner">
-
-        <label>Start Date</label>
-        <input type="date" id="startDate">
-
-        <button onclick="saveSettings()">Save Settings</button>
-        <button onclick="requestNotif()">Enable Notifications</button>
-    </div>
-
-    <div class="card">
-        <h2>Today</h2>
-        <div id="today"></div>
-        <label><input type="checkbox" id="checkLunch"> Lunch Taken</label><br>
-        <label><input type="checkbox" id="checkDinner"> Dinner Taken</label>
-    </div>
-
-    <div class="card">
-        <h2>History</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Lunch</th>
-                    <th>Dinner</th>
-                </tr>
-            </thead>
-            <tbody id="history"></tbody>
-        </table>
     </div>
 
     <script>
@@ -108,79 +150,125 @@
         let settings = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
         let data = JSON.parse(localStorage.getItem(DATA_KEY)) || {};
 
+        // Toggle settings visibility
+        const toggleBtn = document.getElementById("toggleSettingsBtn");
+        toggleBtn.onclick = () => {
+            document.getElementById("settingsDiv").classList.toggle("hidden");
+        };
+
         function saveSettings() {
             settings = {
-                medLunch: medLunch.value,
-                medDinner: medDinner.value,
-                timeLunch: timeLunch.value,
-                timeDinner: timeDinner.value,
-                startDate: startDate.value
+                medLunch: document.getElementById("medLunch").value,
+                medDinner: document.getElementById("medDinner").value,
+                timeLunch: document.getElementById("timeLunch").value,
+                timeDinner: document.getElementById("timeDinner").value,
+                startDate: document.getElementById("startDate").value
             };
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-            alert("Saved");
-        }
-
-        function formatDate(d) { return d.toISOString().split("T")[0]; }
-
-        function init() {
-            document.getElementById("today").innerText = formatDate(new Date());
-
-            if (settings.medLunch) medLunch.value = settings.medLunch;
-            if (settings.medDinner) medDinner.value = settings.medDinner;
-            if (settings.timeLunch) timeLunch.value = settings.timeLunch;
-            if (settings.timeDinner) timeDinner.value = settings.timeDinner;
-            if (settings.startDate) startDate.value = settings.startDate;
-
-            const today = formatDate(new Date());
-            if (!data[today]) data[today] = { lunch: false, dinner: false };
-
-            checkLunch.checked = data[today].lunch;
-            checkDinner.checked = data[today].dinner;
-
-            checkLunch.onchange = () => {
-                data[today].lunch = checkLunch.checked;
-                localStorage.setItem(DATA_KEY, JSON.stringify(data));
-                render();
-            };
-
-            checkDinner.onchange = () => {
-                data[today].dinner = checkDinner.checked;
-                localStorage.setItem(DATA_KEY, JSON.stringify(data));
-                render();
-            };
-
-            render();
-            setInterval(checkReminder, 60000);
-        }
-
-        function render() {
-            history.innerHTML = "";
-            Object.keys(data).sort().reverse().forEach(date => {
-                history.innerHTML += `<tr>
-<td>${date}</td>
-<td>${data[date].lunch ? "✔" : ""}</td>
-<td>${data[date].dinner ? "✔" : ""}</td>
-</tr>`;
-            });
-        }
-
-        function checkReminder() {
-            const now = new Date();
-            const current = now.toTimeString().slice(0, 5);
-            if (current === settings.timeLunch && !data[formatDate(now)].lunch) {
-                new Notification(settings.medLunch || "Lunch Medication");
-            }
-            if (current === settings.timeDinner && !data[formatDate(now)].dinner) {
-                new Notification(settings.medDinner || "Dinner Medication");
-            }
+            updateLabels();
+            document.getElementById("settingsDiv").classList.add("hidden"); // hide after saving
+            alert("Settings saved");
         }
 
         function requestNotif() {
             Notification.requestPermission();
         }
 
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("sw.js");
+        function formatDate(d) { return d.toISOString().split("T")[0]; }
+
+        function init() {
+            const today = formatDate(new Date());
+            document.getElementById("todayDate").innerText = today;
+
+            // Load settings
+            if (settings.medLunch) document.getElementById("medLunch").value = settings.medLunch;
+            if (settings.medDinner) document.getElementById("medDinner").value = settings.medDinner;
+            if (settings.timeLunch) document.getElementById("timeLunch").value = settings.timeLunch;
+            if (settings.timeDinner) document.getElementById("timeDinner").value = settings.timeDinner;
+            if (settings.startDate) document.getElementById("startDate").value = settings.startDate;
+
+            // Ensure today exists
+            if (!data[today]) data[today] = { lunch: false, dinner: false };
+
+            updateLabels();
+
+            // Set checkboxes
+            document.getElementById("checkLunch").checked = data[today].lunch;
+            document.getElementById("checkDinner").checked = data[today].dinner;
+
+            // Checkbox event listeners
+            document.getElementById("checkLunch").onchange = () => { updateToday("lunch"); };
+            document.getElementById("checkDinner").onchange = () => { updateToday("dinner"); };
+
+            renderTable();
+            setInterval(checkReminder, 60000);
+
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("sw.js");
+            }
+        }
+
+        // Update today data
+        function updateToday(type) {
+            const today = formatDate(new Date());
+            if (!data[today]) data[today] = { lunch: false, dinner: false };
+            data[today][type] = document.getElementById("check" + capitalize(type)).checked;
+            localStorage.setItem(DATA_KEY, JSON.stringify(data));
+            renderTable();
+        }
+
+        function updateLabels() {
+            document.getElementById("labelLunch").innerText = settings.medLunch ? `${settings.medLunch} (Lunch)` : "Lunch";
+            document.getElementById("labelDinner").innerText = settings.medDinner ? `${settings.medDinner} (Dinner)` : "Dinner";
+        }
+
+        // Capitalize helper
+        function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+        // Render table
+        function renderTable() {
+            const tbody = document.getElementById("historyTable");
+            tbody.innerHTML = "";
+            Object.keys(data).sort().reverse().forEach(date => {
+                const row = document.createElement("tr");
+
+                const dateCell = document.createElement("td");
+                dateCell.innerText = date;
+
+                const lunchCell = document.createElement("td");
+                lunchCell.contentEditable = "true";
+                lunchCell.innerText = data[date].lunch ? "✔" : "";
+                lunchCell.onblur = () => { data[date].lunch = lunchCell.innerText === "✔"; saveData(); };
+
+                const dinnerCell = document.createElement("td");
+                dinnerCell.contentEditable = "true";
+                dinnerCell.innerText = data[date].dinner ? "✔" : "";
+                dinnerCell.onblur = () => { data[date].dinner = dinnerCell.innerText === "✔"; saveData(); };
+
+                row.appendChild(dateCell);
+                row.appendChild(lunchCell);
+                row.appendChild(dinnerCell);
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function saveData() {
+            localStorage.setItem(DATA_KEY, JSON.stringify(data));
+        }
+
+        // Reminder check
+        function checkReminder() {
+            const now = new Date();
+            const current = now.toTimeString().slice(0, 5);
+            const today = formatDate(now);
+
+            if (current === settings.timeLunch && !data[today].lunch) {
+                new Notification(settings.medLunch || "Lunch Medication");
+            }
+            if (current === settings.timeDinner && !data[today].dinner) {
+                new Notification(settings.medDinner || "Dinner Medication");
+            }
         }
 
         init();
